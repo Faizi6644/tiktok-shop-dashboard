@@ -9,7 +9,7 @@
     "worker": "node src/worker.js",
     "web": "node src/web/server.js",
     "verify": "node src/scripts/verify.js",
-    "test": "node --test test/"
+    "test": "node --test test/*.test.js"
   },
   "engines": {
     "node": ">=20"
