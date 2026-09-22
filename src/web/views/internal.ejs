@@ -1,0 +1,94 @@
+<%- include('partials/head', { title: 'Internal', autoRefreshSec: 15 }) %>
+<section class="page-head">
+  <div>
+    <h1>Connected shops</h1>
+    <p class="muted">Internal only. Refreshes every 15 seconds. Times shown in UTC.</p>
+  </div>
+</section>
+<% if (flash) { %><p class="notice"><%= flash %></p><% } %>
+<% if (!shops.length) { %><p class="card">No shops connected yet. Run <code>npm run connect</code> or start the worker.</p><% } %>
+
+<% shops.forEach(s => {
+     const healthy = s.token_status === 'active' && s.sync_status !== 'failed';
+     const r = s.reconciliation;
+%>
+<section class="card">
+  <h2><%= s.name %> <span class="muted small"><%= s.id %> · <%= s.region %> · <%= s.timezone %></span></h2>
+
+  <div class="grid3">
+    <div>
+      <h3>Sync</h3>
+      <p>Status: <span class="pill <%= s.sync_status %>"><%= s.sync_status %></span>
+        <% if (s.sync_requested_at) { %><span class="pill running">requested: <%= s.sync_requested_kind %></span><% } %></p>
+      <p>Last successful sync:<br><strong><%= fmt.dateTime(s.last_success_at, 'UTC') %></strong> (<%= fmt.ago(s.last_success_at) %>)</p>
+      <p>Last full sweep: <%= fmt.dateTime(s.last_full_success_at, 'UTC') %></p>
+      <p>Orders stored: <strong><%= s.orders_stored %></strong> · changes seen after first fetch: <%= s.changes_seen %></p>
+      <p class="small muted">Cursor (update_time ≥): <%= fmt.unix(s.incr_cursor, 'UTC') %>
+        <% if (s.full_cursor !== null) { %><br>Full sweep in progress, at <%= fmt.unix(s.full_cursor, 'UTC') %><% } %></p>
+    </div>
+    <div>
+      <h3>Last failure</h3>
+      <% if (s.last_failure_at) { %>
+        <p><strong><%= fmt.dateTime(s.last_failure_at, 'UTC') %></strong> (<%= fmt.ago(s.last_failure_at) %>)</p>
+        <pre class="errmsg"><%= s.last_failure_message %></pre>
+      <% } else { %><p class="muted">No failures recorded.</p><% } %>
+    </div>
+    <div>
+      <h3>Connection</h3>
+      <p>Token: <span class="pill <%= s.token_status === 'active' ? 'idle' : 'failed' %>"><%= s.token_status %></span></p>
+      <p>Access token expires: <%= fmt.unix(s.access_expires_at, 'UTC') %> (<%= fmt.ago(Number(s.access_expires_at) * 1000) %>)</p>
+      <p>Last refreshed: <%= fmt.dateTime(s.last_refreshed_at, 'UTC') %></p>
+      <p>Refresh token expires: <%= fmt.unix(s.refresh_expires_at, 'UTC') %></p>
+      <% if (s.last_refresh_error) { %><pre class="errmsg"><%= s.last_refresh_error %></pre><% } %>
+      <% if (s.token_status === 'reauth_required') { %><p class="error">The shop must be re-authorised: run <code>npm run connect -- &lt;new auth code&gt;</code>.</p><% } %>
+    </div>
+  </div>
+
+  <div class="actions">
+    <form method="post" action="/internal/shops/<%= s.id %>/sync" class="inline">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="kind" value="incremental">
+      <button type="submit">Sync now</button>
+    </form>
+    <form method="post" action="/internal/shops/<%= s.id %>/sync" class="inline">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="kind" value="full">
+      <button type="submit" class="secondary">Full resync (all orders)</button>
+    </form>
+    <a href="/dashboard?shop=<%= s.id %>">View client page</a>
+  </div>
+
+  <h3>Reconciliation with Seller Center</h3>
+  <% if (!r) { %><p class="muted">Not run yet (runs hourly after a successful sync).</p><% } else { %>
+    <p><span class="pill <%= r.ok ? 'idle' : 'failed' %>"><%= r.ok ? 'match' : 'MISMATCH' %></span>
+      checked <%= fmt.dateTime(r.checked_at, 'UTC') %>, period <%= fmt.shortDay(new Date(r.period_start).toISOString().slice(0,10)) %> – <%= fmt.shortDay(new Date(r.period_end).toISOString().slice(0,10)) %></p>
+    <table>
+      <thead><tr><th></th><th class="num">GMV</th><th class="num">Orders</th></tr></thead>
+      <tbody>
+        <tr><td>Seller Center</td><td class="num"><%= fmt.usd(r.seller_center_gmv) %></td><td class="num"><%= r.seller_center_orders %></td></tr>
+        <tr><td>Our data, Seller Center's definition</td><td class="num"><%= fmt.usd(r.local_gmv) %></td><td class="num"><%= r.local_orders %></td></tr>
+        <tr><td>Client page (Net sales), same dates</td><td class="num"><%= fmt.usd(r.dashboard_net_sales) %></td><td class="num"><%= r.dashboard_orders %></td></tr>
+        <tr><td>All orders: API total_count vs database</td><td class="num"></td><td class="num"><%= r.remote_total_count %> vs <%= r.local_total_count %></td></tr>
+      </tbody>
+    </table>
+    <% if (r.notes) { %><pre class="errmsg"><%= r.notes %></pre><% } %>
+  <% } %>
+
+  <h3>Recent runs</h3>
+  <table>
+    <thead><tr><th>#</th><th>Kind</th><th>Trigger</th><th>Status</th><th>Started (UTC)</th><th class="num">Pages</th><th class="num">Upserted</th><th class="num">Changed</th><th class="num">Retries</th><th>Error</th></tr></thead>
+    <tbody>
+      <% s.runs.forEach(run => { %>
+        <tr>
+          <td><%= run.id %></td><td><%= run.kind %></td><td><%= run.trigger_source %></td>
+          <td><span class="pill <%= run.status === 'success' ? 'idle' : run.status %>"><%= run.status %></span></td>
+          <td><%= fmt.dateTime(run.started_at, 'UTC') %></td>
+          <td class="num"><%= run.pages %></td><td class="num"><%= run.orders_upserted %></td><td class="num"><%= run.orders_changed %></td><td class="num"><%= run.retries %></td>
+          <td class="small"><%= run.error || '' %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</section>
+<% }) %>
+<%- include('partials/foot') %>

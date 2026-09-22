@@ -1,0 +1,94 @@
+<%- include('partials/head', { title: 'Sales' }) %>
+<%
+  const tz = shop.timezone;
+  const c = fmt.chart(summary.daily);
+  const staleMin = freshness && freshness.last_success_at ? (Date.now() - new Date(freshness.last_success_at).getTime()) / 60000 : Infinity;
+%>
+<section class="page-head">
+  <div>
+    <h1><%= shop.name %></h1>
+    <p class="muted">Shop time: <%= tz %> · <%= fmt.shortDay(from) %> – <%= fmt.shortDay(to) %>, <%= from.slice(0, 4) %></p>
+  </div>
+  <p class="synced <%= staleMin > 20 ? 'warn' : '' %>">
+    Data last synced: <strong><%= fmt.dateTime(freshness && freshness.last_success_at, tz) %></strong>
+    (<%= fmt.ago(freshness && freshness.last_success_at) %>)
+    <% if (staleMin > 20) { %><br>Data may be out of date. Our team has been alerted.<% } %>
+  </p>
+</section>
+
+<form method="get" action="/dashboard" class="range card">
+  <label>From <input type="date" name="from" value="<%= from %>" required></label>
+  <label>To <input type="date" name="to" value="<%= to %>" required></label>
+  <% if (user.role === 'admin') { %><input type="hidden" name="shop" value="<%= shop.id %>"><% } %>
+  <button type="submit">Show</button>
+  <span class="presets">
+    <% presets.forEach(p => { %>
+      <a href="/dashboard?from=<%= p.from %>&to=<%= p.to %><%= user.role === 'admin' ? '&shop=' + shop.id : '' %>"><%= p.label %></a>
+    <% }) %>
+  </span>
+  <% if (rangeError) { %><p class="error"><%= rangeError %> Showing the last 30 days instead.</p><% } %>
+</form>
+
+<section class="kpis">
+  <div class="card kpi">
+    <div class="kpi-label"><%= definition.title %></div>
+    <div class="kpi-value"><%= fmt.usd(summary.net_sales) %></div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi-label">Orders</div>
+    <div class="kpi-value"><%= summary.orders.toLocaleString('en-US') %></div>
+  </div>
+</section>
+
+<section class="card definition">
+  <h2>What “<%= definition.title %>” means</h2>
+  <p><strong><%= definition.formula %></strong></p>
+  <ul>
+    <li><%= definition.includes %></li>
+    <li>Not included: <%= definition.excludes %></li>
+    <li><%= definition.refunds %></li>
+    <li>“Orders” counts the same orders.</li>
+  </ul>
+</section>
+
+<section class="card">
+  <h2>Daily net sales</h2>
+  <svg class="chart" viewBox="0 0 <%= c.width %> <%= c.height %>" role="img" aria-label="Daily net sales from <%= from %> to <%= to %>">
+    <% c.ticks.forEach(t => { %>
+      <line x1="<%= c.padL %>" x2="<%= c.width - 8 %>" y1="<%= t.y %>" y2="<%= t.y %>" class="grid"/>
+      <text x="<%= c.padL - 8 %>" y="<%= t.y + 4 %>" class="axis" text-anchor="end"><%= fmt.usd(t.v).replace('.00', '') %></text>
+    <% }) %>
+    <% c.bars.forEach(b => { %>
+      <rect x="<%= b.x %>" y="<%= b.y %>" width="<%= b.w %>" height="<%= b.h %>" class="bar"><title><%= b.label %></title></rect>
+      <% if (b.showLabel) { %><text x="<%= b.cx %>" y="<%= c.baseY + 18 %>" class="axis" text-anchor="middle"><%= fmt.shortDay(b.day) %></text><% } %>
+    <% }) %>
+    <line x1="<%= c.padL %>" x2="<%= c.width - 8 %>" y1="<%= c.baseY %>" y2="<%= c.baseY %>" class="baseline"/>
+  </svg>
+  <details>
+    <summary>Show the numbers</summary>
+    <table>
+      <thead><tr><th>Day</th><th class="num">Net sales</th><th class="num">Orders</th></tr></thead>
+      <tbody>
+        <% summary.daily.forEach(d => { %>
+          <tr><td><%= d.day %></td><td class="num"><%= fmt.usd(d.net_sales) %></td><td class="num"><%= d.orders %></td></tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </details>
+</section>
+
+<section class="card">
+  <h2>How this compares to Seller Center GMV</h2>
+  <p class="muted">Seller Center shows GMV, which counts orders before refunds and includes unpaid orders. Same dates, step by step:</p>
+  <table class="bridge">
+    <tbody>
+      <tr><td>GMV as Seller Center counts it (<%= bridge.gmv_orders %> orders, not cancelled)</td><td class="num"><%= fmt.usd(bridge.gmv) %></td></tr>
+      <tr><td>− Unpaid orders (<%= bridge.unpaid_orders %>)</td><td class="num">−<%= fmt.usd(bridge.unpaid) %></td></tr>
+      <tr><td>− Refunds (<%= bridge.refunded_orders %> orders)</td><td class="num">−<%= fmt.usd(bridge.refunds) %></td></tr>
+      <tr class="total"><td>= Net sales (<%= bridge.net_orders %> orders)</td><td class="num"><%= fmt.usd(bridge.net_sales) %></td></tr>
+    </tbody>
+  </table>
+  <p class="muted small">Not in either number: cancelled orders (<%= bridge.cancelled_orders %>, <%= fmt.usd(bridge.cancelled) %>) and sales tax (<%= fmt.usd(bridge.tax_on_counted) %>).
+    Seller Center's own 30-day window may cover different dates than the range above.</p>
+</section>
+<%- include('partials/foot') %>
