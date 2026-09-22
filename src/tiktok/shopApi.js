@@ -5,6 +5,7 @@
  */
 import { requestWithRetry, ApiError } from './http.js';
 import { getAccessToken, refreshAccessToken } from './tokens.js';
+import { log } from '../log.js';
 
 async function shopRequest(shop, opts, stats) {
   let token = await getAccessToken(shop.id);
@@ -22,6 +23,7 @@ async function shopRequest(shop, opts, stats) {
     return await send(token);
   } catch (e) {
     if (!(e instanceof ApiError) || !e.isAuthError) throw e;
+    log.warn('got 401 from TikTok; refreshing the token and retrying once', { shopId: shop.id, path: opts.path, code: e.code, message: e.message });
     token = await refreshAccessToken(shop.id, token);
     return send(token);
   }

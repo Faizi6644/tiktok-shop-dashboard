@@ -17,10 +17,11 @@
  *   - incremental (every 5 min): starts at incr_cursor minus a 10 min lookback. Cancellations and
  *     refunds bump update_time, so a changed order always comes back in the next incremental run.
  *     A normal run is 1 request. We never re-download everything on each run.
- *     The saved incr_cursor never goes past the moment the run started. Why: some orders in the
- *     data carry an update_time that is ahead of the wall clock. If the cursor jumped to that value,
- *     a cancellation stamped with the real current time would sit *below* the cursor and never be
- *     fetched. Orders whose update_time is still in the future are simply re-read each run (few rows).
+ *     The saved incr_cursor never goes past the moment the run started. Why: if any order ever
+ *     carries an update_time ahead of our clock (clock skew, or source data stamped in the future;
+ *     in this mock, historical update_times run up to a day after the last order), a cursor that
+ *     jumped to it would sit *above* a cancellation stamped with the real current time, and that
+ *     cancellation would never be fetched. Future-stamped orders are simply re-read each run.
  *   - full (once a day, or "Full resync" on the internal page): walks every order from 0 with its
  *     own resumable cursor (full_cursor). A safety net for anything the API might not surface
  *     through update_time, e.g. a change that does not bump update_time.
@@ -87,8 +88,8 @@ export async function savePage(shop, apiOrders, { kind, position, safeCursor, ru
       for (const r of rows) {
         const prev = byId.get(r.id);
         // Last fetch wins. We deliberately do NOT drop a copy whose update_time is lower than the
-        // stored one: in this API's data a cancellation can be stamped with an update_time that is
-        // lower than the order's previous one (the old value was ahead of the clock). One worker
+        // stored one: if an order's previous update_time was ahead of the clock, a later change
+        // (e.g. a cancellation stamped with the real time) has a *lower* update_time. One worker
         // fetches sequentially, so the latest response is the latest truth. We log it for visibility.
         if (prev && r.update_time < Number(prev.update_time)) {
           wentBackwards++;
