@@ -1,0 +1,23 @@
+{
+  "name": "tiktok-shop-dashboard",
+  "private": true,
+  "description": "TikTok Shop reporting dashboard: background order sync, client and internal pages (Node.js, Express, EJS, MySQL)",
+  "type": "module",
+  "scripts": {
+    "migrate": "node src/db/migrate.js",
+    "connect": "node src/scripts/connect.js",
+    "worker": "node src/worker.js",
+    "web": "node src/web/server.js",
+    "verify": "node src/scripts/verify.js",
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.3",
+    "ejs": "^6.0.1",
+    "express": "^5.2.1",
+    "mysql2": "^3.24.4"
+  }
+}
