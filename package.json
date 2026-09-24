@@ -9,7 +9,8 @@
     "worker": "node src/worker.js",
     "web": "node src/web/server.js",
     "verify": "node src/scripts/verify.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "simulate:token-expiry": "node src/scripts/simulate-token-expiry.js"
   },
   "engines": {
     "node": ">=20"

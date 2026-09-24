@@ -218,6 +218,7 @@ Because the definitions are identical, any difference means our data is wrong (a
   - Real token expiry: the stored expiry was pushed forward so the proactive refresh wouldn't fire. The mock expired the token, the next sync got `401 105001`, refreshed, and finished in the same run.
   - Loading both pages many times: 0 new lines in the mock's request log.
   - Client-to-admin access via page, API and form POST: all 403.
+- To see token recovery without waiting 15 minutes: `npm run simulate:token-expiry` replaces the stored access token with one the API rejects (refresh token untouched). Click **Sync now**: the log shows `got 401 … refreshing`, `access token refreshed`, `sync finished` in the same run.
 - To see the 15-second rate-limit 429 in action, start the worker with `TTS_MAX_RPM=60` and trigger a full resync. It waits 15 seconds and carries on.
 
 ## With more time
