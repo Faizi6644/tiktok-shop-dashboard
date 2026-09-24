@@ -1,16 +1,4 @@
-/**
- * The numbers the client sees, plus the "bridge" from Seller Center GMV to our Net sales.
- * All money is summed in SQL as DECIMAL and returned as strings.
- *
- * DEFINITION OF "NET SALES" (also shown on the client page):
- *   For orders PLACED in the date range (shop's local calendar day, America/Los_Angeles here):
- *     subtotal - seller discount + shipping fee - refunds
- *   counting only orders that are paid and not cancelled (status not UNPAID, not CANCELLED).
- *   Sales tax is excluded (it is collected for the state, not revenue for the seller).
- *   A refund reduces the day the order was placed, so a past day can go down when a refund arrives.
- *
- * "Orders" = number of orders counted in Net sales.
- */
+
 import { pool } from './db/pool.js';
 import { dateRange } from './time.js';
 

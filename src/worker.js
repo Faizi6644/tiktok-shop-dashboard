@@ -1,17 +1,3 @@
-/**
- * The background worker: the ONLY process that talks to TikTok.
- * Opening the dashboard never calls the API; the web process only reads MySQL.
- *
- * Every tick (15s) it, for each connected shop:
- *   1. keeps the access token fresh (refresh ~5 min before expiry), even when nothing else is due;
- *   2. runs a sync if one is due, in this priority order:
- *        manual request from the internal page > unfinished full sweep > daily full sweep > incremental (5 min);
- *   3. after a successful incremental sync, runs the Seller Center reconciliation if it is due (hourly).
- * All "is it due" decisions are read from MySQL, so a restart keeps the schedule.
- *
- * Only one worker may run: it holds a MySQL named lock (GET_LOCK) for its whole life.
- * Two workers would double the API rate and race on token refresh.
- */
 import { pool } from './db/pool.js';
 import { config } from './config.js';
 import { log } from './log.js';

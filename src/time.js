@@ -1,9 +1,3 @@
-/**
- * Calendar-date helpers in an IANA timezone, using the built-in Intl API
- * (MySQL's CONVERT_TZ needs timezone tables that are often not installed).
- */
-
-/** Unix seconds -> 'YYYY-MM-DD' in the given timezone. */
 export function localDate(unixSec, timeZone) {
   // en-CA formats as YYYY-MM-DD
   return new Date(unixSec * 1000).toLocaleDateString('en-CA', { timeZone });
