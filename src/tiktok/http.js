@@ -66,7 +66,8 @@ export async function requestOnce(opts) {
       signal: AbortSignal.timeout(30_000),
     });
   } catch (e) {
-    throw new ApiError(0, -1, `network error: ${e.message}`);
+    const cause = e.cause?.code ?? e.cause?.message ?? '';
+    throw new ApiError(0, -1, `network error calling ${url.origin}: ${e.message}${cause ? ` (${cause})` : ''}. Is the TikTok API / mock server running?`);
   }
   let json = {};
   try {
@@ -95,7 +96,7 @@ export async function requestWithRetry(opts, stats, maxAttempts = 10) {
       const base = e.retryAfterSec ? e.retryAfterSec * 1000 : Math.min(30_000, 1000 * 2 ** (attempt - 1));
       const wait = base + Math.floor(Math.random() * 250); // jitter
       if (stats) stats.retries = (stats.retries ?? 0) + 1;
-      log.warn('retrying request', { path: opts.path, status: e.httpStatus, code: e.code, attempt, waitMs: wait });
+      log.warn('retrying request', { path: opts.path, status: e.httpStatus, code: e.code, error: e.message, attempt, waitMs: wait });
       await sleep(wait);
     }
   }
