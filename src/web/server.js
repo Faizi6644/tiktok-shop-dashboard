@@ -4,7 +4,7 @@
  * token encryption key. "Sync now" just sets a flag the worker picks up within ~15 seconds.
  */
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import express from 'express';
 import { config } from '../config.js';
 import { log } from '../log.js';
@@ -116,6 +116,7 @@ app.use((err, req, res, _next) => {
 
 export { app, parseRange };
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run only when started directly (not when imported by tests). pathToFileURL makes this work on Windows too.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   app.listen(config.web.port, () => log.info(`web listening on http://localhost:${config.web.port}`));
 }

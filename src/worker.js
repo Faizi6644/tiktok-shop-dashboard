@@ -15,6 +15,7 @@
 import { pool } from './db/pool.js';
 import { config } from './config.js';
 import { log } from './log.js';
+import { pathToFileURL } from 'node:url';
 import { sleep } from './tiktok/http.js';
 import { connectShop, getAccessToken, ReauthRequiredError } from './tiktok/tokens.js';
 import { runSync } from './sync/orders.js';
@@ -136,7 +137,8 @@ for (const sig of ['SIGINT', 'SIGTERM']) {
   });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Run only when started directly (not when imported by tests). pathToFileURL makes this work on Windows too.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch((e) => {
     log.error('worker crashed', { error: e.message, stack: e.stack });
     process.exit(1);
